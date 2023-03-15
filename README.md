@@ -3,7 +3,7 @@
 
 Projet de rendu et d'animation. La partie rendu est sur la branche main, la partie animation est sur la branche anim.
 
-
+Une annexe (annexe.pdf) contenant des captures d'écran du projet est également disponible
 
 
 ## Installation
