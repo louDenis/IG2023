@@ -1,3 +1,5 @@
+
+
 #ifndef MODEL_H
 #define MODEL_H
 
@@ -10,8 +12,8 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
-#include "mesh.h"
-#include "shader.h"
+#include <mesh.h>
+#include <shader.h>
 
 #include <string>
 #include <fstream>
@@ -19,25 +21,24 @@
 #include <iostream>
 #include <map>
 #include <vector>
+#include <assimp_glm_helpers.h>
+
 using namespace std;
 
-vector<unsigned int> swap_indices(vector<unsigned int> indices) 
+struct BoneInfo
 {
-    for (long unsigned int i= 0; i < indices.size()-3 ; i=i+3)
-    {
-        unsigned int v0 = indices[i] ;
-        unsigned int v2 = indices[i+2] ; 
-        indices[i] = v2 ;
-        indices[i+2] = v0 ;  
-        
-    }
+    /*id is index in finalBoneMatrices*/
+    int id;
 
-    return indices ;
+    /*offset matrix transforms vertex from model space to bone space*/
+    glm::mat4 offset;
 
-}
+	int parentIndex;
+	int numChildren;
 
-unsigned int TextureFromFile(const char *path, const string &directory, bool gamma = false);
+	std::vector<int> parents;
 
+};
 class Model 
 {
 public:
@@ -46,6 +47,8 @@ public:
     vector<Mesh>    meshes;
     string directory;
     bool gammaCorrection;
+	
+	
 
     // constructor, expects a filepath to a 3D model.
     Model(string const &path, bool gamma = false) : gammaCorrection(gamma)
@@ -57,27 +60,126 @@ public:
     void Draw(Shader * shader, Camera camera, int option)
     {
         for(unsigned int i = 0; i < meshes.size(); i++)
-            meshes[i].Draw(shader, camera, option);
-    }
-
-    vector<Vertex> get_normals_from_meshes()
-    {
-        vector<Vertex> normals_vertices ;
-        for (long unsigned int i = 0 ; i < meshes.size() ; ++i)
-        {
-            vector<Vertex> normals_mesh =  meshes[i].getVerticesNormal() ;
-            normals_vertices.insert( normals_vertices.end(), normals_mesh.begin(), normals_mesh.end() );
-        }
-        return normals_vertices ;
+            meshes[i].Draw(shader, camera, option);  
     }
     
+	std::map<string, BoneInfo> GetBoneInfoMap() { return m_BoneInfoMap; }
+	int& GetBoneCount() { return m_BoneCounter; }
+
+	std::vector<glm::vec3> GetBonePositions()
+	{
+		std::vector<glm::vec3> bone_positions;
+		std::cout << "calcul des positions globales de chaque os" << std::endl;
+		for (int i = 0; i < m_BoneCounter ; ++i)
+		{
+			glm::mat4 global = calculate_global_position(m_BoneInfoMap, i);
+			glm::vec3 pos = glm::normalize(glm::vec3(global[3]));
+			bone_positions.push_back(global[3]);
+		}
+		return bone_positions;
+	}
+
+	std::vector<unsigned int> GetBoneIndices()
+	{
+		std::vector<unsigned int> bone_indices;
+		for (int i = 0; i < m_BoneCounter; ++i)
+		{
+
+			std::string boneName = getNameFromIdx(m_BoneInfoMap, i);
+			bone_indices.push_back(m_BoneInfoMap[boneName].id);
+			bone_indices.push_back(m_BoneInfoMap[boneName].parentIndex);
+		}
+		return bone_indices;
+	}
+	
+
 private:
+
+	std::vector<int> computeParents(std::map<string, BoneInfo>& m_BoneInfoMap, int index, std::vector<int> parents)
+	{
+		std::string child_name = getNameFromIdx(m_BoneInfoMap, index);
+		int parentIndex = m_BoneInfoMap[child_name].parentIndex;
+
+		//std::cout << " parentIndex : " << parentIndex << " bone name : " << child_name << " index : " << index << std::endl;
+
+		if (parentIndex == -1)
+			return parents;
+		
+		else
+		{
+			parents.push_back(parentIndex);
+			return computeParents(m_BoneInfoMap, parentIndex, parents);
+		}
+		
+	}
+
+
+
+	glm::mat4 calculate_global_position(std::map<string, BoneInfo>& m_BoneInfoMap, int index) {
+		std::string bone_name = getNameFromIdx(m_BoneInfoMap, index);
+		glm::mat4 global_matrix = m_BoneInfoMap[bone_name].offset;
+		for (int i= 0 ; i < m_BoneInfoMap[bone_name].numChildren ; i++)
+		{
+			std::string parentName = getNameFromIdx(m_BoneInfoMap, i);
+			global_matrix *= m_BoneInfoMap[parentName].offset;
+		}
+		return global_matrix;
+	}
+
+	void printOffset(std::map<string, BoneInfo>& m_BoneInfoMap, int index)
+	{
+		std::string bone_name = getNameFromIdx(m_BoneInfoMap, index);
+		glm::mat4 offset_matrix = m_BoneInfoMap[bone_name].offset;
+		std::cout << "offset matrix : " << std::endl;
+		for (int i = 0; i < 4; ++i)
+		{
+			for (int j = 0; j < 4; ++j)
+			{
+				std::cout << offset_matrix[i][j] << " ";
+			}
+			std::cout << std::endl;
+		}
+	}
+
+	void computeAllParents(std::map<string, BoneInfo>& m_BoneInfoMap)
+	{
+		//std::m_BoneInfoMap.size()
+		for (int i= 0 ; i < m_BoneInfoMap.size() ; ++i)
+		{
+			std::vector<int> parents;
+			parents = computeParents(m_BoneInfoMap, i, parents);
+			//std::cout << "computeAllParents size : " << parents.size() << std::endl;
+			std::string current_name = getNameFromIdx(m_BoneInfoMap, i);
+			m_BoneInfoMap[current_name].parents = parents;
+			m_BoneInfoMap[current_name].numChildren = parents.size(); 
+		
+		}
+	}
+
+	std::map<string, BoneInfo> m_BoneInfoMap;
+	int m_BoneCounter = 0;
+
+	void printMapInfo()
+	{
+		std::cout << "-------MAP INFO--------------" << std::endl ;
+			for (auto it = m_BoneInfoMap.begin(); it != m_BoneInfoMap.end(); ++it) {
+				std::cout << "Key: " << it->first << ", id: " << it->second.id  << " parent :" << it->second.parentIndex  << " num children :" << it->second.numChildren << std::endl;
+				std::cout << "parents size" << it->second.parents.size() << std::endl;
+				std::cout << "parents : " ;
+				for (int j = 0 ; j < it->second.parents.size() ; ++j)
+				{
+					std::cout  << " , " << it->second.parents[j] ;
+				}
+				std::cout << std::endl;
+		}
+	}
+
     // loads a model with supported ASSIMP extensions from file and stores the resulting meshes in the meshes vector.
     void loadModel(string const &path)
     {
         // read file via ASSIMP
         Assimp::Importer importer;
-        const aiScene* scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
+        const aiScene* scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace);
         // check for errors
         if(!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) // if is Not Zero
         {
@@ -88,8 +190,10 @@ private:
         directory = path.substr(0, path.find_last_of('/'));
 
         // process ASSIMP's root node recursively
-        processNode(scene->mRootNode, scene);
+        processNode(scene->mRootNode, scene);		
+	
     }
+
 
     // processes a node in a recursive fashion. Processes each individual mesh located at the node and repeats this process on its children nodes (if any).
     void processNode(aiNode *node, const aiScene *scene)
@@ -101,6 +205,7 @@ private:
             // the scene contains all the data, node is just to keep stuff organized (like relations between nodes).
             aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
             meshes.push_back(processMesh(mesh, scene));
+            std::cout << " number of meshes" << meshes.size() << std::endl ;
         }
         // after we've processed all of the meshes (if any) we then recursively process each of the children nodes
         for(unsigned int i = 0; i < node->mNumChildren; i++)
@@ -110,93 +215,235 @@ private:
 
     }
 
-    Mesh processMesh(aiMesh *mesh, const aiScene *scene)
-    {
-        // data to fill
-        vector<Vertex> vertices;
-        vector<unsigned int> indices;
-        vector<Texture> textures;
+	void SetVertexBoneDataToDefault(Vertex& vertex)
+	{
+		for (int i = 0; i < MAX_BONE_INFLUENCE; i++)
+		{
+			vertex.m_BoneIDs[i] = -1;
+			vertex.m_Weights[i] = 0.0f;
+		}
+	}
 
-        // walk through each of the mesh's vertices
-        for(unsigned int i = 0; i < mesh->mNumVertices; i++)
-        {
-            Vertex vertex;
-            glm::vec3 vector; // we declare a placeholder vector since assimp uses its own vector class that doesn't directly convert to glm's vec3 class so we transfer the data to this placeholder glm::vec3 first.
-            // positions
-            vector.x = mesh->mVertices[i].x;
-            vector.y = mesh->mVertices[i].y;
-            vector.z = mesh->mVertices[i].z;
-            vertex.Position = vector;
-            // normals
-            if (mesh->HasNormals())
-            {
-                vector.x = mesh->mNormals[i].x;
-                vector.y = mesh->mNormals[i].y;
-                vector.z = mesh->mNormals[i].z;
-                vertex.Normal = vector;
-            }
-            
-          
-            // texture coordinates
-            if(mesh->mTextureCoords[0]) // does the mesh contain texture coordinates?
-            {
-                glm::vec2 vec;
-                // a vertex can contain up to 8 different texture coordinates. We thus make the assumption that we won't 
-                // use models where a vertex can have multiple texture coordinates so we always take the first set (0).
-                vec.x = mesh->mTextureCoords[0][i].x; 
-                vec.y = mesh->mTextureCoords[0][i].y;
-                vertex.TexCoords = vec;
-                // tangent
-                vector.x = mesh->mTangents[i].x;
-                vector.y = mesh->mTangents[i].y;
-                vector.z = mesh->mTangents[i].z;
-                vertex.Tangent = vector;
-                // bitangent
-                vector.x = mesh->mBitangents[i].x;
-                vector.y = mesh->mBitangents[i].y;
-                vector.z = mesh->mBitangents[i].z;
-                vertex.Bitangent = vector;
-            }
-            else
-                vertex.TexCoords = glm::vec2(0.0f, 0.0f);
 
-            vertices.push_back(vertex);
-        }
-        // now wak through each of the mesh's faces (a face is a mesh its triangle) and retrieve the corresponding vertex indices.
-        for(unsigned int i = 0; i < mesh->mNumFaces; i++)
-        {
-            aiFace face = mesh->mFaces[i];
-            // retrieve all indices of the face and store them in the indices vector
-            for(unsigned int j = 0; j < face.mNumIndices; j++)
-                indices.push_back(face.mIndices[j]);        
-        }
-         //indices = swap_indices(indices) ;
-        // process materials
-        aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];    
-        // we assume a convention for sampler names in the shaders. Each diffuse texture should be named
-        // as 'texture_diffuseN' where N is a sequential number ranging from 1 to MAX_SAMPLER_NUMBER. 
-        // Same applies to other texture as the following list summarizes:
-        // diffuse: texture_diffuseN
-        // specular: texture_specularN
-        // normal: texture_normalN
 
-        // 1. diffuse maps
-        vector<Texture> diffuseMaps = loadMaterialTextures(material, aiTextureType_DIFFUSE, "texture_diffuse");
-        textures.insert(textures.end(), diffuseMaps.begin(), diffuseMaps.end());
-        // 2. specular maps
-        vector<Texture> specularMaps = loadMaterialTextures(material, aiTextureType_SPECULAR, "texture_specular");
-        textures.insert(textures.end(), specularMaps.begin(), specularMaps.end());
-        // 3. normal maps
-        std::vector<Texture> normalMaps = loadMaterialTextures(material, aiTextureType_HEIGHT, "texture_normal");
-        textures.insert(textures.end(), normalMaps.begin(), normalMaps.end());
-        // 4. height maps
-        std::vector<Texture> heightMaps = loadMaterialTextures(material, aiTextureType_AMBIENT, "texture_height");
-        textures.insert(textures.end(), heightMaps.begin(), heightMaps.end());
-        
-        // return a mesh object created from the extracted mesh data
+	Mesh processMesh(aiMesh* mesh, const aiScene* scene)
+	{
+		vector<Vertex> vertices;
+		vector<unsigned int> indices;
+		vector<Texture> textures;
+
+		for (unsigned int i = 0; i < mesh->mNumVertices; i++)
+		{
+			Vertex vertex;
+			SetVertexBoneDataToDefault(vertex);
+			vertex.Position = AssimpGLMHelpers::GetGLMVec(mesh->mVertices[i]);
+			vertex.Normal = AssimpGLMHelpers::GetGLMVec(mesh->mNormals[i]);
+			
+			if (mesh->mTextureCoords[0])
+			{
+				glm::vec2 vec;
+				vec.x = mesh->mTextureCoords[0][i].x;
+				vec.y = mesh->mTextureCoords[0][i].y;
+				vertex.TexCoords = vec;
+			}
+			else
+				vertex.TexCoords = glm::vec2(0.0f, 0.0f);
+
+			vertices.push_back(vertex);
+		}
+		for (unsigned int i = 0; i < mesh->mNumFaces; i++)
+		{
+			aiFace face = mesh->mFaces[i];
+			for (unsigned int j = 0; j < face.mNumIndices; j++)
+				indices.push_back(face.mIndices[j]);
+		}
+		aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
+
+		vector<Texture> diffuseMaps = loadMaterialTextures(material, aiTextureType_DIFFUSE, "texture_diffuse");
+		textures.insert(textures.end(), diffuseMaps.begin(), diffuseMaps.end());
+		vector<Texture> specularMaps = loadMaterialTextures(material, aiTextureType_SPECULAR, "texture_specular");
+		textures.insert(textures.end(), specularMaps.begin(), specularMaps.end());
+		std::vector<Texture> normalMaps = loadMaterialTextures(material, aiTextureType_HEIGHT, "texture_normal");
+		textures.insert(textures.end(), normalMaps.begin(), normalMaps.end());
+		std::vector<Texture> heightMaps = loadMaterialTextures(material, aiTextureType_AMBIENT, "texture_height");
+		textures.insert(textures.end(), heightMaps.begin(), heightMaps.end());
+
+		ExtractBoneWeightForVertices(vertices,mesh,scene);
+		computeAllParents(m_BoneInfoMap);
+
+		printMapInfo() ;
+		
+
         return Mesh(vertices, indices, textures, false);
-    }
+	}
 
+	void SetVertexBoneData(Vertex& vertex, int boneID, float weight)
+	{
+		for (int i = 0; i < MAX_BONE_INFLUENCE; ++i)
+		{
+			if (vertex.m_BoneIDs[i] < 0)
+			{
+                
+                vertex.m_Weights[i] = weight ; 
+				vertex.m_BoneIDs[i] = boneID;
+				break;
+			}
+		}
+	}
+
+		void printNodeHierarchy(const aiNode* node, int depth = 0) {
+		std::cout << std::string(depth, ' ') << node->mName.C_Str() << std::endl;
+
+		for (unsigned int i = 0; i < node->mNumChildren; ++i) {
+			printNodeHierarchy(node->mChildren[i], depth + 1);
+		}
+	}
+
+	//function that gets which bone is parent of other bone
+	std::string getParent(aiNode* node, std::string boneName)
+	{
+		std::string parentName = "";
+		for (int i = 0; i < node->mNumChildren; ++i) {
+			if (node->mChildren[i]->mName.C_Str() == boneName) {
+				parentName = node->mName.C_Str();
+				break;
+			}
+			else {
+				parentName = getParent(node->mChildren[i], boneName);
+				if (parentName != "") {
+					break;
+				}
+			}
+		}
+		return parentName;
+	}
+
+	//function that gets name of bone from idx
+	std::string getNameFromIdx(std::map<string, BoneInfo>& m_BoneInfoMap, int idx)
+	{
+		std::string boneName = "";
+		for (auto it = m_BoneInfoMap.begin(); it != m_BoneInfoMap.end(); ++it) {
+			if (it->second.id == idx) {
+				boneName = it->first;
+				break;
+			}
+		}
+		return boneName;
+	}
+
+	//function that gets idx of bone from name
+	int getIdxFromName(std::map<string, BoneInfo>& m_BoneInfoMap, std::string boneName)
+	{
+		//std::cout << "bone name a trouver" << boneName << std::endl;
+		int parentIndex = -1;
+	
+		for (auto it = m_BoneInfoMap.begin(); it != m_BoneInfoMap.end(); ++it) {
+			//std::cout << "bone name dans la map" << it->first << std::endl;
+			if (it->first == boneName) {
+				parentIndex = it->second.id;
+				break;
+			}
+		}
+		
+		return parentIndex;
+	}
+
+
+
+	void ExtractBoneWeightForVertices(std::vector<Vertex>& vertices, aiMesh* mesh, const aiScene* scene)
+	{
+
+		auto& boneInfoMap = m_BoneInfoMap;
+		int& boneCount = m_BoneCounter;
+
+        std::cout << "mesh->mNumBones" << mesh->mNumBones << std::endl ;
+
+		
+		for (int boneIndex = 0; boneIndex < mesh->mNumBones; ++boneIndex)
+		{
+			int boneID = -1;
+			std::string boneName = mesh->mBones[boneIndex]->mName.C_Str();
+
+			if (boneInfoMap.find(boneName) == boneInfoMap.end())
+			{
+				BoneInfo newBoneInfo;
+				newBoneInfo.id = boneCount;
+				newBoneInfo.offset = AssimpGLMHelpers::ConvertMatrixToGLMFormat(mesh->mBones[boneIndex]->mOffsetMatrix);
+				//newBoneInfo.numChildren = getNumChildren(scene, boneName);
+				boneInfoMap[boneName] = newBoneInfo;
+				boneID = boneCount;
+				boneCount++;
+			}
+			else
+			{
+				boneID = boneInfoMap[boneName].id;
+			}
+
+			
+			assert(boneID != -1);
+			auto weights = mesh->mBones[boneIndex]->mWeights;
+			int numWeights = mesh->mBones[boneIndex]->mNumWeights;
+
+			for (int weightIndex = 0; weightIndex < numWeights; ++weightIndex)
+			{
+				int vertexId = weights[weightIndex].mVertexId;
+				float weight = weights[weightIndex].mWeight;
+				assert(vertexId <= vertices.size());
+				SetVertexBoneData(vertices[vertexId], boneID, weight);
+			}
+		}
+
+		for (int boneIndex = 0; boneIndex < mesh->mNumBones; ++boneIndex)
+		{
+			std::string boneName = mesh->mBones[boneIndex]->mName.C_Str();
+
+			std::string parentName = getParent(scene->mRootNode, boneName);
+			boneInfoMap[boneName].parentIndex= getIdxFromName(m_BoneInfoMap, parentName);
+		}
+	
+	}
+
+
+	unsigned int TextureFromFile(const char* path, const string& directory, bool gamma = false)
+	{
+		string filename = string(path);
+		filename = directory + '/' + filename;
+
+		unsigned int textureID;
+		glGenTextures(1, &textureID);
+
+		int width, height, nrComponents;
+		unsigned char* data = stbi_load(filename.c_str(), &width, &height, &nrComponents, 0);
+		if (data)
+		{
+			GLenum format;
+			if (nrComponents == 1)
+				format = GL_RED;
+			else if (nrComponents == 3)
+				format = GL_RGB;
+			else if (nrComponents == 4)
+				format = GL_RGBA;
+
+			glBindTexture(GL_TEXTURE_2D, textureID);
+			glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+			glGenerateMipmap(GL_TEXTURE_2D);
+
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+			stbi_image_free(data);
+		}
+		else
+		{
+			std::cout << "Texture failed to load at path: " << path << std::endl;
+			stbi_image_free(data);
+		}
+
+		return textureID;
+	}
+    
     // checks all material textures of a given type and loads the textures if they're not loaded yet.
     // the required info is returned as a Texture struct.
     vector<Texture> loadMaterialTextures(aiMaterial *mat, aiTextureType type, string typeName)
@@ -232,43 +479,8 @@ private:
 };
 
 
-unsigned int TextureFromFile(const char *path, const string &directory, bool gamma)
-{
-    string filename = string(path);
-    filename = directory + '/' + filename;
 
-    unsigned int textureID;
-    glGenTextures(1, &textureID);
 
-    int width, height, nrComponents;
-    unsigned char *data = stbi_load(filename.c_str(), &width, &height, &nrComponents, 0);
-    if (data)
-    {
-        GLenum format;
-        if (nrComponents == 1)
-            format = GL_RED;
-        else if (nrComponents == 3)
-            format = GL_RGB;
-        else if (nrComponents == 4)
-            format = GL_RGBA;
 
-        glBindTexture(GL_TEXTURE_2D, textureID);
-        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-        stbi_image_free(data);
-    }
-    else
-    {
-        std::cout << "Texture failed to load at path: " << path << std::endl;
-        stbi_image_free(data);
-    }
-
-    return textureID;
-}
 #endif
+

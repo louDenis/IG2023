@@ -30,3 +30,4 @@ void main()
     vec3 result = (specular + diffuse + ambient) * (Normal * 0.5 + 0.5);
     FragColor = vec4(result, 1.0);
 }
+

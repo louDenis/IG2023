@@ -50,6 +50,11 @@
         "map": "cpp",
         "ratio": "cpp",
         "iomanip": "cpp",
-        "cstring": "cpp"
+        "cstring": "cpp",
+        "cinttypes": "cpp",
+        "complex": "cpp",
+        "list": "cpp",
+        "set": "cpp",
+        "mutex": "cpp"
     }
 }
