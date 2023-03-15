@@ -68,7 +68,7 @@ En ce qui concerne la partie rendu, je suis repartie de 0. J'ai donc passé une 
 
 Une fois que toutes les bases ont été mises en place (classe Mesh, classe Camera, classe Shader), j'ai pu importer mon modèle de l'oeuvre avec Assimp. Cette partie ne m'a pas posé de difficultés en particulier, j'ai du y passer 2h environ. La partie m'ayant pris le plus de temps est la partie DES SAINTS FRAMEBUFFERS (j'y reviendrais). J'ai ensuite éclairé mon modèle et importé ses textures (l'éclairage a été fait avec le modèle de phong). 
 A ce moment là, j'ai eu deux problèmes (qui après coup paraissent simplissime, mais étant donné que j'ai fait peu d'OpenGL dans ma vie, m'ont posé pas mal de soucis) :
-- Certaines normales n'étaient pas dans le bon sens, donnant lieu aux résultats mit en annexe. 
+- Certaines normales n'étaient pas dans le bon sens, donnant lieux à des résultats faux
 - Je n'avais pas activé les options concernant le test de profondeur, et cela donnait également lieu à des résultats étrange. 
 
 Cette partie à donc du me prendre environ 5h en comptant le temps passé à essayer de comprendre d'ou venaient les problèmes. J'ai également ajouté à mon modèle de Phong la notion d'atténuation de lumière.
