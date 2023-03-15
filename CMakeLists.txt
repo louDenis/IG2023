@@ -34,7 +34,7 @@ FILE(GLOB_RECURSE imgui_files ${CMAKE_SOURCE_DIR}/includes/imgui/*.cpp ${CMAKE_S
 
 include_directories( GLOB_RECURSE
     ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_SOURCE_DIR}/glad/include
+    ${CMAKE_SOURCE_DIR}/lib/glad/include
     ${CMAKE_SOURCE_DIR}/glm
     ${CMAKE_SOURCE_DIR}/assimp/include)
 
