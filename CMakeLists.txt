@@ -15,9 +15,9 @@ set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 
-add_subdirectory(${CMAKE_SOURCE_DIR}/lib/glfw-3.3.8)
-add_subdirectory(${CMAKE_SOURCE_DIR}/lib/glm)
-add_subdirectory(${CMAKE_SOURCE_DIR}/lib/assimp)
+add_subdirectory(${CMAKE_SOURCE_DIR}/glfw)
+add_subdirectory(${CMAKE_SOURCE_DIR}/glm)
+add_subdirectory(${CMAKE_SOURCE_DIR}/assimp)
 
 
 
@@ -29,14 +29,14 @@ FILE(GLOB_RECURSE folder_header ${CMAKE_SOURCE_DIR}/src/*.hpp)
 FILE(GLOB_RECURSE folder_header ${CMAKE_SOURCE_DIR}/src/*.h)
 FILE(GLOB_RECURSE shader_files ${CMAKE_SOURCE_DIR}/src/shaders/*.glsl)
 
-set(glad_file ${CMAKE_SOURCE_DIR}/lib/glad/src/glad.c)
+set(glad_file ${CMAKE_SOURCE_DIR}/glad/src/glad.c)
 FILE(GLOB_RECURSE imgui_files ${CMAKE_SOURCE_DIR}/includes/imgui/*.cpp ${CMAKE_SOURCE_DIR}/includes/imgui/*.h)
 
 include_directories( GLOB_RECURSE
     ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_SOURCE_DIR}/lib/glad/include
-    ${CMAKE_SOURCE_DIR}/lib/glm
-    ${CMAKE_SOURCE_DIR}/lib/assimp/include)
+    ${CMAKE_SOURCE_DIR}/glad/include
+    ${CMAKE_SOURCE_DIR}/glm
+    ${CMAKE_SOURCE_DIR}/assimp/include)
 
 add_executable(${CMAKE_PROJECT_NAME} ${folder_source} ${shader_files} ${glad_file} ${folder_header} ${imgui_files})
 
