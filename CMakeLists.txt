@@ -29,7 +29,7 @@ FILE(GLOB_RECURSE folder_header ${CMAKE_SOURCE_DIR}/src/*.hpp)
 FILE(GLOB_RECURSE folder_header ${CMAKE_SOURCE_DIR}/src/*.h)
 FILE(GLOB_RECURSE shader_files ${CMAKE_SOURCE_DIR}/src/shaders/*.glsl)
 
-set(glad_file ${CMAKE_SOURCE_DIR}/glad/src/glad.c)
+set(glad_file ${CMAKE_SOURCE_DIR}/lib/glad/src/glad.c)
 FILE(GLOB_RECURSE imgui_files ${CMAKE_SOURCE_DIR}/includes/imgui/*.cpp ${CMAKE_SOURCE_DIR}/includes/imgui/*.h)
 
 include_directories( GLOB_RECURSE
