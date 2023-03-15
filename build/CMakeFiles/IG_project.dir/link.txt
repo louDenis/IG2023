@@ -1,0 +1,1 @@
+/usr/bin/c++  -Wall -pedantic -lassimp -rdynamic CMakeFiles/IG_project.dir/src/main.cpp.o CMakeFiles/IG_project.dir/src/mesh.cpp.o CMakeFiles/IG_project.dir/src/shader.cpp.o CMakeFiles/IG_project.dir/lib/glad/src/glad.c.o -o ../bin/IG_project  -lGL -lGLU lib/glfw-3.3.8/src/libglfw3.a lib/assimp/lib/libassimp.a -lm -ldl -lX11 -lpthread -Wl,-Bstatic -lz -Wl,-Bdynamic -lrt 
